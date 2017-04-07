@@ -6,8 +6,10 @@
 # @Author: Mark Wang
 # @Email: wangyouan@gmial.com
 
+from ChineseStock.constants.path_info import Path
 
-class Constant(object):
+
+class Constant(Path):
     working_days = 251
     initial_wealth = 10000.0
 
