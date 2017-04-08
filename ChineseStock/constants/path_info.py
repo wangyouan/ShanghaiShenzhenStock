@@ -20,10 +20,8 @@ class Path(object):
     REPORT_DATA_PATH = os.path.join(DATA_PATH, 'report_data')
     STOCK_DATA_PATH = os.path.join(DATA_PATH, 'stock_price_data')
 
-    STOCK_PRICE_20170214_PATH = os.path.join(DATA_PATH, 'stock_price_data', 'stock_price_20170214', 'daily_sep')
+    STOCK_PRICE_20170408_FILE = os.path.join(DATA_PATH, 'stock_price_data', 'stock_price_20170408', 'stock_price.p')
 
-    REPORT_20170214_PATH = os.path.join(REPORT_DATA_PATH, 'report_data_20170214')  # si_cd_own_insider
-    REPORT_20170224_PATH = os.path.join(REPORT_DATA_PATH, 'report_data_20170224')  # forecast incentives
     REPORT_20170228_PATH = os.path.join(REPORT_DATA_PATH, 'report_data_20170228')  # insider_exe_gt_2
     REPORT_20170303_PATH = os.path.join(REPORT_DATA_PATH, 'report_data_20170303')  # forecast and insider gt2 run up
 
@@ -32,18 +30,18 @@ class Path(object):
 
     # Run up combinations x in [5, 10, 15, 20], y = 1
     INSIDER_EXE_GT2_RUN_UP_PATH = os.path.join(REPORT_20170303_PATH, 'insider_exe_gt2_runup')
-
-    FORECAST_REPORT_PATH = os.path.join(REPORT_20170224_PATH, 'forecast_report')
-
     FORECAST_RUN_UP_REPORT_PATH = os.path.join(REPORT_20170303_PATH, 'forecast_run_up')
 
     SZ_399300_PATH = os.path.join(STOCK_DATA_PATH, 'index_date', '399300_daily.p')
 
     # The longest trading days list from 1990 to 2017 from 1990-12-19 to 2017-02-13
-    TRADING_DAYS_20170214_PATH = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170214.p')
+    TRADING_DAYS_20170214_FILE = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170214.p')
 
     # This trading days list only cover 399300.SZ date from 2004-01-05 to 2017-02-13
-    TRADING_DAYS_20170216_PATH = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170216.p')
+    TRADING_DAYS_20170216_FILE = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170216.p')
 
     # This trading days list only cover 399300.SZ date from 2005-01-04 to 2017-02-13
-    TRADING_DAYS_20170228_PATH = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170228.p')
+    TRADING_DAYS_20170228_FILE = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170228.p')
+
+    # This trading days list only cover 399300.SZ date from 2016-01-01 to 2017-02-13
+    TRADING_DAYS_20170408_FILE = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170408.p')
