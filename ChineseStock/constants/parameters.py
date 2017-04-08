@@ -8,6 +8,7 @@
 
 
 class Parameters(object):
-
     working_days = 251
     initial_wealth = 10000.0
+
+    data_server_port = 54311

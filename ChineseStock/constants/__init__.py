@@ -7,9 +7,10 @@
 # @Email: wangyouan@gmial.com
 
 from ChineseStock.constants.path_info import Path
+from ChineseStock.constants.parameters import Parameters
 
 
-class Constant(Path):
+class Constant(Path, Parameters):
     # Common constant
     TICKER = 'tic'
     DATE = 'date'
