@@ -9,8 +9,12 @@
 import os
 import datetime
 from dateutil.relativedelta import relativedelta
+from xmlrpc.client import Server
 
 import pandas as pd
+
+from ChineseStock.utilities.calc_util import get_annualized_return, get_sharpe_ratio
+from ChineseStock.constants import Constant as const
 
 
 def merge_result_data_path(result_path):
@@ -52,7 +56,8 @@ def merge_result_data_path(result_path):
         return alpha_df, raw_df
 
 
-def generate_review_strategies(alpha_data, raw_data, base_df_type='alpha', review=6, forward=6):
+def generate_review_strategies(alpha_data, raw_data, base_df_type='alpha', review=6, forward=6,
+                               max_method='daily_return'):
     daily_alpha_return = alpha_data / alpha_data.shift(1) - 1
     daily_raw_return = raw_data / raw_data.shift(1) - 1
 
@@ -82,7 +87,16 @@ def generate_review_strategies(alpha_data, raw_data, base_df_type='alpha', revie
         filling_index = date_index[date_index < end_date]
         filling_index = filling_index[filling_index >= middle_date]
 
-        sub_learning_strategy_name = base_df.loc[trading_index].mean().idxmax()
+        sub_base_df = base_df.loc[trading_index]
+
+        if max_method == 'daily_return':
+            sub_learning_strategy_name = sub_base_df.mean().idxmax()
+
+        elif max_method == 'sharpe_ratio':
+            sub_learning_strategy_name = get_sharpe_ratio(sub_base_df, const.RETURN_DATAFRAME).idxmax()
+
+        else:
+            sub_learning_strategy_name = get_annualized_return(sub_base_df, const.RETURN_DATAFRAME).idxmax()
 
         learning_alpha_series.loc[filling_index] = daily_alpha_return.loc[filling_index, sub_learning_strategy_name]
         learning_raw_series.loc[filling_index] = daily_raw_return.loc[filling_index, sub_learning_strategy_name]
@@ -98,3 +112,15 @@ def generate_review_strategies(alpha_data, raw_data, base_df_type='alpha', revie
     learning_raw_wealth = (learning_raw_series.fillna(0) + 1).cumprod() * 10000
 
     return learning_alpha_wealth, learning_raw_wealth
+
+
+def load_stock_price_from_rpc_server(server_port, trade_date, stock_ticker):
+    server = Server('http://localhost:{}'.format(server_port))
+    stock_data = server.load_stock_price(trade_date.strftime('%Y%m%d'), stock_ticker)
+
+    data_df = pd.read_json(stock_data, orient='records', date_unit='s')
+    if data_df.empty:
+        return {}
+
+    else:
+        return data_df.loc[0].to_dict()

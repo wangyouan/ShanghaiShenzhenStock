@@ -24,7 +24,7 @@ class DataRpcServer(Constant):
         tmp_df = tmp_df[tmp_df[self.TICKER] == tic]
 
         data_json = tmp_df.to_json(path_or_buf=None, orient='records',
-                                   date_format='epoch', double_precision=10, force_ascii=True, date_unit='ms')
+                                   date_format='epoch', double_precision=10, force_ascii=True, date_unit='s')
         return data_json
 
 

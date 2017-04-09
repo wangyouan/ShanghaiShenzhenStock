@@ -70,10 +70,10 @@ for review, forward in go_over_list:
     alpha_series, raw_series = generate_review_strategies(alpha_df, raw_df, base_df_type=base_df_type,
                                                           review=review, forward=forward)
 
-    plot_multiline_picture_text(name, [raw_series, alpha_series],
-                                ['Raw Strategy', 'Alpha Strategy'],
-                                save_path=os.path.join(save_result_path, '{}.png'.format(name)),
-                                stop_loss_rate='NaN')
+    # plot_multiline_picture_text(name, [raw_series, alpha_series],
+    #                             ['Raw Strategy', 'Alpha Strategy'],
+    #                             save_path=os.path.join(save_result_path, '{}.png'.format(name)),
+    #                             stop_loss_rate='NaN')
 
     alpha_learning_df[name] = alpha_series
     raw_learning_df[name] = raw_series
