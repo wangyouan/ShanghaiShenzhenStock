@@ -7,6 +7,7 @@
 # @Email: wangyouan@gmial.com
 
 import os
+import datetime
 # import multiprocessing
 
 import pandas as pd
@@ -29,10 +30,11 @@ raw_learning_df = pd.DataFrame(index=raw_df.index)
 
 
 def process_information(portfolio_info):
-
     result_dict = {}
 
-    for i in portfolio_info:
+    total_length = len(portfolio_info)
+
+    for j, i in enumerate(portfolio_info):
         review = int(i[0])
         forward = int(i[1])
         base_type = i[2]
@@ -44,6 +46,8 @@ def process_information(portfolio_info):
         alpha_series, raw_series = generate_review_strategies(alpha_df, raw_df, base_df_type=base_type, review=review,
                                                               forward=forward, max_method=max_method)
         result_dict[name] = [alpha_series, raw_series]
+
+        print('{}: {}% finished'.format(datetime.datetime.today(), float(j) / total_length))
 
     return result_dict
 

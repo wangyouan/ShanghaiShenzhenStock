@@ -12,3 +12,7 @@ class Parameters(object):
     initial_wealth = 10000.0
 
     data_server_port = 54311
+
+    stock_buy_type = 'open'
+    stock_sell_type = 'close'
+    stock_sell_type2 = 'open'

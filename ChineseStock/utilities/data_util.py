@@ -12,6 +12,7 @@ from dateutil.relativedelta import relativedelta
 from xmlrpc.client import Server
 
 import pandas as pd
+import numpy as np
 
 from ChineseStock.utilities.calc_util import get_annualized_return, get_sharpe_ratio
 from ChineseStock.constants import Constant as const
@@ -124,3 +125,66 @@ def load_stock_price_from_rpc_server(server_port, trade_date, stock_ticker):
 
     else:
         return data_df.loc[0].to_dict()
+
+
+def calculate_trade_info(date, tic, sr, hday, tdays,
+                         buy_type=const.STOCK_OPEN_PRICE, sell_type=const.STOCK_CLOSE_PRICE,
+                         sell_type2=const.STOCK_OPEN_PRICE):
+    """
+    This function used to calculate stock trading info
+    :param date: information announce date
+    :param tic: stock ticker
+    :param sr: stop loss rate
+    :param hday: the days of holding
+    :param buy_type: use which price as buy
+    :param sell_type: use which price as sell
+    :param sell_type2: if target date is not trading day, use which price to sell
+    :param sell_date: sell_date of target stock
+    :return: a dict of temp result
+    """
+    temp_result = {const.REPORT_SELL_TYPE: np.nan, const.REPORT_SELL_DATE: np.nan,
+                   const.REPORT_BUY_DATE: np.nan, const.REPORT_SELL_PRICE: np.nan,
+                   const.REPORT_BUY_PRICE: np.nan, const.REPORT_BUY_TYPE: buy_type}
+
+    # Get buy day
+    trading_days = tdays[tdays > date].tolist()
+
+    # not enough days to hold this stock
+    if len(trading_days) < hday:
+        return temp_result
+    buy_date = trading_days[0]
+
+    stock_data = load_stock_price_from_rpc_server(const.data_server_port, buy_date, tic)
+    if stock_data:
+        pass
+    else:
+        return temp_result
+
+    buy_price = stock_data[buy_type]
+    sell_date = trading_days[hday - 1]
+    highest_prc = stock_data[const.STOCK_HIGH_PRICE]
+
+    for day in trading_days[1:]:
+        sell_info = load_stock_price_from_rpc_server(const.data_server_port, day, tic)
+        if sell_info:
+            op_prc = sell_info[const.STOCK_OPEN_PRICE]
+            rate = op_prc / highest_prc - 1
+            if day > sell_date:
+                temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type2]
+                temp_result[const.REPORT_SELL_TYPE] = sell_type2
+                temp_result[const.REPORT_SELL_DATE] = day
+                temp_result[const.REPORT_BUY_DATE] = buy_date
+                temp_result[const.REPORT_BUY_PRICE] = buy_price
+                return temp_result
+
+            elif day == sell_date or rate < sr:
+                temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type]
+                temp_result[const.REPORT_SELL_TYPE] = sell_type
+                temp_result[const.REPORT_SELL_DATE] = day
+                temp_result[const.REPORT_BUY_DATE] = buy_date
+                temp_result[const.REPORT_BUY_PRICE] = buy_price
+                return temp_result
+
+            highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
+
+    return temp_result

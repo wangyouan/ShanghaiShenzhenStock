@@ -53,8 +53,11 @@ def plot_multiline_alpha(data_list, legend_list, picture_title, picture_save_pat
     plt.close()
 
 
-def plot_multiline_picture_text(pic_title, data_list, legends, save_path, stop_loss_rate):
-    line1 = 'Transaction cost 0.2% SR {}%'.format(stop_loss_rate)
+def plot_multiline_picture_text(pic_title, data_list, legends, save_path, stop_loss_rate=None):
+    if stop_loss_rate is None:
+        line1 = 'Transaction cost 0.2%'
+    else:
+        line1 = 'Transaction cost 0.2% SR {}%'.format(stop_loss_rate)
 
     info_list = [line1]
 

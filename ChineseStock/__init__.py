@@ -7,8 +7,15 @@
 # @Email: wangyouan@gmial.com
 
 
-def backtest_strategies(
-        running_tag, strategy_class=None, strategy_parameters=None, start_date=None, end_date=None, need_strategy=True,
-        need_portfolio=True, need_sort_result=True, stock_price_path=None, report_path=None
-):
+def backtest_strategies(run_tag, str_class=None, str_pars=None,
+                        sp_path=None, ir_path=None):
+    """
+    
+    :param run_tag: This tag will used in save path and other things
+    :param str_class: which strategy class that ned to used in this test
+    :param str_pars: strategies parameters. parameters that are used to 
+    :param sp_path: stock price file path
+    :param ir_path: input report path
+    :return: None
+    """
     pass
