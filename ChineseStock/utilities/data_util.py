@@ -8,6 +8,7 @@
 
 import os
 import datetime
+import time
 from dateutil.relativedelta import relativedelta
 from xmlrpc.client import Server
 
@@ -117,9 +118,19 @@ def generate_review_strategies(alpha_data, raw_data, base_df_type='alpha', revie
 
 def load_stock_price_from_rpc_server(server_port, trade_date, stock_ticker):
     server = Server('http://localhost:{}'.format(server_port))
-    stock_data = server.load_stock_price(trade_date.strftime('%Y%m%d'), stock_ticker)
+
+    while True:
+        try:
+            stock_data = server.load_stock_price(trade_date.strftime('%Y%m%d'), stock_ticker)
+
+        except ConnectionResetError:
+            time.sleep(0.1)
+
+        else:
+            break
 
     data_df = pd.read_json(stock_data, orient='records', date_unit='s')
+
     if data_df.empty:
         return {}
 
@@ -188,3 +199,4 @@ def calculate_trade_info(date, tic, sr, hday, tdays,
             highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
 
     return temp_result
+

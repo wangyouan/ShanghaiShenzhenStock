@@ -20,7 +20,10 @@ class Path(object):
     REPORT_DATA_PATH = os.path.join(DATA_PATH, 'report_data')
     STOCK_DATA_PATH = os.path.join(DATA_PATH, 'stock_price_data')
 
-    STOCK_PRICE_20170408_FILE = os.path.join(DATA_PATH, 'stock_price_data', 'stock_price_20170408', 'stock_price.p')
+    STOCK_PRICE_20170408_FILE_90 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'stock_price.p')
+    STOCK_PRICE_20170408_FILE_05 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'stock_price_after_05.p')
+    STOCK_PRICE_TICKER_SEP_PATH_05 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'tic_sep_after_05')
+    STOCK_PRICE_TICKER_DATE_PATH_90 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'date_sep')
 
     # Run up combinations x in [5, 10, 15, 20], y = 1
     INSIDER_EXE_GT2_RUN_UP_FILE = os.path.join(REPORT_DATA_PATH, 'report_data_20170408', 'insider_exe_gt2_runup.p')

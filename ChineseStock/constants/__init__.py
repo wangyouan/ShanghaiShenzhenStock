@@ -70,3 +70,7 @@ class Constant(Path, Parameters):
     RAW_STRATEGY = 'raw'
     ALPHA_STRATEGY = 'alpha'
     BETA_STRATEGY = 'beta'
+
+    TEMP_INPUT_REPORT_PATH = 'input_return_report'
+    TEMP_RAW_WEALTH_PATH = 'raw_wealth'
+    TEMP_ALPHA_WEALTH_PATH = 'alpha_wealth'

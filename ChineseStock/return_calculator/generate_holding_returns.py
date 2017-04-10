@@ -7,67 +7,151 @@
 # @Email: wangyouan@gmial.com
 
 import os
+import multiprocessing
+# import shutil
 
+import pathos
+import dill
 import pandas as pd
 import numpy as np
 
-from ChineseStock.constants import Constant
-from ChineseStock.utilities.data_util import calculate_trade_info
-from ChineseStock.utilities.multi_process_util import parallel_pandas
+from ChineseStock.constants import Constant as const
 
 
-class GenerateHoldingReturns(Constant):
-    def __init__(self, save_path, input_report_path):
-        self._save_path = save_path
-        self._input_report = pd.read_pickle(input_report_path)
+# from ChineseStock.utilities.multi_process_util import parallel_pandas
 
-    def calculate_return_date(self, hday, sr, over=False):
-        """
-        Get return report
-        :param hday: holding days
-        :param sr: stop loss rate
-        :param over: need to override files or not
-        :return: None
-        """
-        save_file_name = 'hday{}_sr{}.p'.format(hday, sr)
+def run_dill_encoded(payload):
+    fun, args = dill.loads(payload)
+    return fun(*args)
 
-        trading_days_list = pd.read_pickle(self.TRADING_DAYS_20170228_FILE)
 
-        if not over and os.path.isfile(os.path.join(self._save_path, save_file_name)):
+def calculate_trade_info(date, stock_data, sr, hday, tdays,
+                         buy_type=const.STOCK_OPEN_PRICE, sell_type=const.STOCK_CLOSE_PRICE,
+                         sell_type2=const.STOCK_OPEN_PRICE):
+    """
+    This function used to calculate stock trading info stock price would be read from hard disk
+    :param date: information announce date
+    :param stock_data: stock price data
+    :param sr: stop loss rate
+    :param hday: the days of holding
+    :param buy_type: use which price as buy
+    :param sell_type: use which price as sell
+    :param sell_type2: if target date is not trading day, use which price to sell
+    :param sell_date: sell_date of target stock
+    :return: a dict of temp result
+    """
+    temp_result = {const.REPORT_SELL_TYPE: np.nan, const.REPORT_SELL_DATE: np.nan,
+                   const.REPORT_BUY_DATE: np.nan, const.REPORT_SELL_PRICE: np.nan,
+                   const.REPORT_BUY_PRICE: np.nan, const.REPORT_BUY_TYPE: buy_type}
+
+    # Get buy day
+    trading_days = tdays[tdays > date].tolist()
+
+    # not enough days to hold this stock
+    if len(trading_days) < hday:
+        return temp_result
+    buy_date = trading_days[0]
+
+    if buy_date not in stock_data.index:
+        return temp_result
+
+    buy_price = stock_data.ix[buy_date, buy_type]
+    temp_result[const.REPORT_BUY_PRICE] = buy_price
+    temp_result[const.REPORT_BUY_DATE] = buy_date
+    sell_date = trading_days[hday - 1]
+    highest_prc = stock_data.ix[buy_date, const.STOCK_HIGH_PRICE]
+
+    for day in trading_days[1:]:
+        if day in stock_data.index:
+            sell_info = stock_data.ix[day]
+            op_prc = sell_info[const.STOCK_OPEN_PRICE]
+            rate = op_prc / highest_prc - 1
+            if day > sell_date:
+                temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type2]
+                temp_result[const.REPORT_SELL_TYPE] = sell_type2
+                temp_result[const.REPORT_SELL_DATE] = day
+                return temp_result
+
+            elif day == sell_date or rate < sr:
+                temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type]
+                temp_result[const.REPORT_SELL_TYPE] = sell_type
+                temp_result[const.REPORT_SELL_DATE] = day
+                return temp_result
+
+            highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
+
+    return temp_result
+
+
+def calculate_return_date(hday, sr, report_df, save_path, over=False):
+    """
+    Get return report
+    :param hday: holding days
+    :param sr: stop loss rate
+    :param over: need to override files or not
+    :return: None
+    """
+    if isinstance(sr, int):
+        sr = -float(abs(sr)) / 100
+
+    save_file_name = 'hday{}_sr{}.p'.format(hday, int(abs(sr) * 100))
+
+    trading_days_list = pd.read_pickle(const.TRADING_DAYS_20170228_FILE)
+
+    if os.path.isfile(os.path.join(save_path, save_file_name)):
+        if not over:
             return
+        # else:
+            # os.remove(os.path.join(save_path, save_file_name))
 
-        def calculate_return(tmp_df):
-            result_df = tmp_df.copy()
-            for key in [self.REPORT_BUY_DATE, self.REPORT_BUY_TYPE, self.REPORT_BUY_PRICE,
-                        self.REPORT_SELL_DATE, self.REPORT_SELL_PRICE, self.REPORT_SELL_TYPE]:
-                result_df.loc[:, key] = np.nan
+    def calculate_return(tmp_df):
+        result_df = tmp_df.copy()
+        for key in [const.REPORT_BUY_DATE, const.REPORT_BUY_TYPE, const.REPORT_BUY_PRICE,
+                    const.REPORT_SELL_DATE, const.REPORT_SELL_PRICE, const.REPORT_SELL_TYPE]:
+            result_df.loc[:, key] = np.nan
+
+        tic = tmp_df.ix[tmp_df.first_valid_index(), const.TICKER]
+
+        stock_file_path = os.path.join(const.STOCK_PRICE_TICKER_SEP_PATH_05, '{}.p'.format(tic))
+
+        if os.path.isfile(stock_file_path):
+            stock_data = pd.read_pickle(stock_file_path)
+
             for i in tmp_df.index:
-                row_info = tmp_df.ix[i]
-                tic = row_info[self.TICKER]
-                date = row_info[self.DATE]
+                date = tmp_df.ix[i, const.DATE]
 
-                return_dict = calculate_trade_info(date, tic, sr, hday, trading_days_list,
-                                                   self.stock_buy_type, self.stock_sell_type,
-                                                   self.stock_sell_type2)
+                return_dict = calculate_trade_info(date, stock_data, sr, hday, trading_days_list,
+                                                   const.stock_buy_type, const.stock_sell_type,
+                                                   const.stock_sell_type2)
                 for key in return_dict:
-                    result_df.loc[:, key] = return_dict[key]
+                    result_df.loc[i, key] = return_dict[key]
 
-            return result_df
+        return result_df
 
-        grouped_df = self._input_report.groupby(self._input_report.index)
-        return_input_report = parallel_pandas(grouped_df, calculate_return)
+    grouped_df = report_df.groupby(const.TICKER)
+    dfs = [df for index, df in grouped_df]
+    pool = pathos.multiprocessing.ProcessingPool(multiprocessing.cpu_count() - 2)
+    # payload = dill.dumps((calculate_return, ))
+    # pool = multiprocessing.Pool(multiprocessing.cpu_count() - 2)
+    result_dfs = pool.map(calculate_return, dfs)
+    return_input_report = pd.concat(result_dfs)
+    # return_input_report = parallel_pandas(grouped_df, calculate_return)
+    # return_input_report = calculate_return(dfs[0])
 
-        return_input_report.to_pickle(os.path.join(self._save_path, save_file_name))
+    for key in [const.REPORT_SELL_DATE, const.REPORT_BUY_DATE]:
+        return_input_report[key] = pd.to_datetime(return_input_report[key])
+
+    return_input_report.to_pickle(os.path.join(save_path, save_file_name))
 
 
 if __name__ == '__main__':
-    report_path = '/home/wangzg/Documents/WangYouan/Trading/ShanghaiShenzhen/data/report_data/report_data_20170409'
-    report_data_file = os.path.join(report_path, 'Insider_purchase_event_list_2017_4_9.p')
-    save_path = '/home/wangzg/Documents/WangYouan/Trading/ShanghaiShenzhen/temp/20170409_test'
-
-    tmp = GenerateHoldingReturns(save_path, report_data_file)
+    report_file = '/home/wangzg/Documents/WangYouan/Trading/ShanghaiShenzhen/data/report_data/report_data_20170409'
+    report_data_file = os.path.join(report_file, 'Insider_purchase_event_list_2017_4_9.p')
+    save_path = '/home/wangzg/Documents/WangYouan/Trading/ShanghaiShenzhen/temp/20170409_test/input_return_report2'
+    report_file = pd.read_pickle(report_data_file)
 
     for hday in [5, 10, 12, 15, 20]:
         for sr in [1, 2, 3, 4, 5]:
             sr_rate = -float(sr) / 100
-            tmp.calculate_return_date(hday, sr_rate)
+            calculate_return_date(hday, sr_rate, over=True, report_df=report_file,
+                                  save_path=save_path)
