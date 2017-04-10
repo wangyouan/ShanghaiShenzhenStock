@@ -329,13 +329,15 @@ if __name__ == '__main__':
     # raw_wealth_path = [os.path.join(const.TEMP_PATH, '20170409_test', 'raw_wealth') for _ in portfolio_range]
     # alpha_wealth_path = [os.path.join(const.TEMP_PATH, '20170409_test', 'alpha_wealth') for _ in portfolio_range]
     # tag = ['test' for _ in portfolio_range]
+    file_path = '20170410_test_equal_portfolio'
     input_report_path = os.path.join(const.TEMP_PATH, '20170409_test', 'input_return_report')
-    raw_wealth_path = os.path.join(const.TEMP_PATH, '20170409_test', 'raw_wealth')
-    alpha_wealth_path = os.path.join(const.TEMP_PATH, '20170409_test', 'alpha_wealth')
-    buy_sell_path = os.path.join(const.TEMP_PATH, '20170409_test', 'buy_sell_record')
+    raw_wealth_path = os.path.join(const.TEMP_PATH, file_path, 'raw_wealth')
+    alpha_wealth_path = os.path.join(const.TEMP_PATH, file_path, 'alpha_wealth')
+    buy_sell_path = os.path.join(const.TEMP_PATH, file_path, 'buy_sell_record')
 
-    if not os.path.isdir(buy_sell_path):
-        os.makedirs(buy_sell_path)
+    for path_name in [raw_wealth_path, alpha_wealth_path, buy_sell_path]:
+        if not os.path.isdir(path_name):
+            os.makedirs(path_name)
 
     tag = 'test'
 
@@ -363,4 +365,18 @@ if __name__ == '__main__':
                 parameter_list.append({'hday': hday, 'sr': sr, 'p': p})
 
     pool.map(multi_process_wealth_series, parameter_list)
+
+    file_list = os.listdir(raw_wealth_path)
+    df = pd.read_pickle(os.path.join(raw_wealth_path, file_list[0]))
+
+    result_df = pd.DataFrame(index=df.index)
+
+    for f in file_list:
+        df = pd.read_pickle(os.path.join(raw_wealth_path, f))
+        col_name = f[:-2]
+        result_df[col_name] = df
+
+    result_df.to_excel(os.path.join(const.TEMP_PATH, file_path, '20170410_insider_test_result.xlsx'))
+    sta_df = pd.DataFrame(columns=result_df.keys())
+
     print(time.time() - start_time)
