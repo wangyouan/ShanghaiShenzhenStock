@@ -11,8 +11,11 @@ class Parameters(object):
     working_days = 251
     initial_wealth = 10000.0
 
+    transaction_cost = 0.002
+
     data_server_port = 54311
 
     stock_buy_type = 'open'
     stock_sell_type = 'close'
-    stock_sell_type2 = 'open'
+    # stock_sell_type2 = 'open'
+    stock_sell_type2 = 'close'

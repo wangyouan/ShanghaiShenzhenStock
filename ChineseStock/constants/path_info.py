@@ -22,6 +22,8 @@ class Path(object):
 
     STOCK_PRICE_20170408_FILE_90 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'stock_price.p')
     STOCK_PRICE_20170408_FILE_05 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'stock_price_after_05.p')
+    STOCK_PRICE_20170408_FILE_13 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'stock_price_after_13.p')
+    STOCK_PRICE_20170408_FILE_13_2 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'double_index_after_13.p')
     STOCK_PRICE_TICKER_SEP_PATH_05 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'tic_sep_after_05')
     STOCK_PRICE_TICKER_DATE_PATH_90 = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', 'date_sep')
 
@@ -29,7 +31,7 @@ class Path(object):
     INSIDER_EXE_GT2_RUN_UP_FILE = os.path.join(REPORT_DATA_PATH, 'report_data_20170408', 'insider_exe_gt2_runup.p')
     FORECAST_RUN_UP_REPORT_FILE = os.path.join(REPORT_DATA_PATH, 'report_data_20170408', 'forecast_runup.p')
 
-    SZ_399300_PATH = os.path.join(STOCK_DATA_PATH, 'index_date', '399300_daily.p')
+    SZ_399300_PATH = os.path.join(STOCK_DATA_PATH, 'stock_price_20170408', '399300.p')
 
     # The longest trading days list from 1990 to 2017 from 1990-12-19 to 2017-02-13
     TRADING_DAYS_20170214_FILE = os.path.join(DATA_PATH, 'trading_days_list', 'trading_days_20170214.p')
