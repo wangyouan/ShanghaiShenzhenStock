@@ -1,31 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# @Filename: generate_holding_returns
-# @Date: 2017-04-09
+# @Filename: generate_holding_return_limit_up_down
+# @Date: 2017-04-11
 # @Author: Mark Wang
 # @Email: wangyouan@gmial.com
 
+""" This file take daily limit into consideration """
+
 import os
 import multiprocessing
-# import shutil
+from dateutil.relativedelta import relativedelta
 
 import pathos
-import dill
 import pandas as pd
 import numpy as np
 
 from ChineseStock.constants import Constant as const
 
 
-# from ChineseStock.utilities.multi_process_util import parallel_pandas
-
-def run_dill_encoded(payload):
-    fun, args = dill.loads(payload)
-    return fun(*args)
-
-
-def calculate_trade_info(date, stock_data, sr, hday, tdays,
+def calculate_trade_info(date, stock_data, sr, hday, tdays, kday=1, limit_up=0.097, limit_down=0.097,
                          buy_type=const.STOCK_OPEN_PRICE, sell_type=const.STOCK_CLOSE_PRICE,
                          sell_type2=const.STOCK_OPEN_PRICE):
     """
@@ -34,6 +28,10 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays,
     :param stock_data: stock price data
     :param sr: stop loss rate
     :param hday: the days of holding
+    :param tdays: trading days, an series about stock date
+    :param kday: keep record days, we only neglect this record after series days
+    :param limit_up: threshold to determine the up limit
+    :param limit_down: threshold to determine the down limit
     :param buy_type: use which price as buy
     :param sell_type: use which price as sell
     :param sell_type2: if target date is not trading day, use which price to sell
@@ -45,30 +43,60 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays,
                    const.REPORT_BUY_PRICE: np.nan, const.REPORT_BUY_TYPE: buy_type}
 
     # Get buy day
-    trading_days = tdays[tdays > date].tolist()
+    trading_days = tdays[tdays > date]
 
     # not enough days to hold this stock
-    if len(trading_days) < hday:
+    if trading_days.size < hday:
         return temp_result
-    buy_date = trading_days[0]
 
-    if buy_date not in stock_data.index:
+    buy_date = trading_days.iloc[0]
+    last_date = tdays[tdays <= date].iloc[-1]
+
+    no_limit_tag = (last_date < stock_data.index.min())
+
+    if not no_limit_tag:
+        while last_date not in stock_data.index:
+            last_date -= relativedelta(days=1)
+
+    # determine buy date
+    for i in range(kday):
+        if buy_date not in stock_data.index or stock_data.ix[buy_date, const.STOCK_VOLUME] < 1:
+            continue
+
+        if no_limit_tag:
+            break
+
+        last_close_price = stock_data.ix[last_date, const.STOCK_CLOSE_PRICE]
+        today_open_price = stock_data.ix[buy_date, const.STOCK_OPEN_PRICE]
+
+        if last_close_price * (1 + limit_up) > today_open_price:
+            break
+
+        last_date = buy_date
+        buy_date = trading_days.iloc[i + 1]
+
+    else:
         return temp_result
 
     buy_price = stock_data.ix[buy_date, buy_type]
-    if stock_data.ix[buy_date, const.STOCK_VOLUME] < 1:
-        return temp_result
     temp_result[const.REPORT_BUY_PRICE] = buy_price
     temp_result[const.REPORT_BUY_DATE] = buy_date
-    sell_date = trading_days[hday - 1]
+    trading_days = trading_days[trading_days >= buy_date]
+    if trading_days.size < hday:
+        return temp_result
+    sell_date = trading_days.iloc[hday - 1]
     highest_prc = stock_data.ix[buy_date, const.STOCK_CLOSE_PRICE]
+    last_close = stock_data.ix[buy_date, const.STOCK_CLOSE_PRICE]
 
-    for day in trading_days[1:]:
+    for day in trading_days.iloc[1:]:
         if day in stock_data.index:
             sell_info = stock_data.ix[day]
-            if sell_info[const.STOCK_VOLUME] < 1:
-                continue
             clc_prc = sell_info[const.STOCK_CLOSE_PRICE]
+            if sell_info[const.STOCK_VOLUME] < 1 or clc_prc < last_close * (1 - limit_down):
+                last_close = clc_prc
+                highest_prc = max(highest_prc, clc_prc)
+                continue
+
             rate = (clc_prc / highest_prc - 1) * 100 + sr
             if day > sell_date:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type2]
@@ -83,6 +111,7 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays,
                 return temp_result
 
             highest_prc = max(highest_prc, sell_info[const.STOCK_CLOSE_PRICE])
+            last_close = clc_prc
 
     return temp_result
 
@@ -93,6 +122,7 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
     :param hday: holding days
     :param sr: stop loss rate
     :param over: need to override files or not
+    :param report_df: report data file used in this test
     :return: None
     """
     save_file_name = 'hday{}_sr{}.p'.format(hday, int(abs(sr) * 100))
@@ -102,7 +132,7 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
     if os.path.isfile(os.path.join(save_path, save_file_name)):
         if not over:
             return
-        # else:
+            # else:
             # os.remove(os.path.join(save_path, save_file_name))
 
     def calculate_return(tmp_df):
@@ -121,9 +151,9 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
             for i in tmp_df.index:
                 date = tmp_df.ix[i, const.DATE]
 
-                return_dict = calculate_trade_info(date, stock_data, sr, hday, trading_days_list,
-                                                   const.stock_buy_type, const.stock_sell_type,
-                                                   const.stock_sell_type2)
+                return_dict = calculate_trade_info(date=date, stock_data=stock_data, sr=sr, hday=hday,
+                                                   tdays=trading_days_list, buy_type=const.stock_buy_type,
+                                                   sell_type=const.stock_sell_type, sell_type2=const.stock_sell_type2)
                 for key in return_dict:
                     result_df.loc[i, key] = return_dict[key]
 
@@ -143,15 +173,3 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
         return_input_report[key] = pd.to_datetime(return_input_report[key])
 
     return_input_report.dropna(subset=[const.REPORT_SELL_PRICE]).to_pickle(os.path.join(save_path, save_file_name))
-
-
-if __name__ == '__main__':
-    report_file = '/home/wangzg/Documents/WangYouan/Trading/ShanghaiShenzhen/data/report_data/report_data_20170409'
-    report_data_file = os.path.join(report_file, 'Insider_purchase_event_list_2017_4_9.p')
-    save_path = '/home/wangzg/Documents/WangYouan/Trading/ShanghaiShenzhen/temp/20170409_test/input_return_report2'
-    report_file = pd.read_pickle(report_data_file)
-
-    for hday in [5, 10, 12, 15, 20]:
-        for sr in [1, 2, 3, 4, 5]:
-            calculate_return_data(hday, sr, over=True, report_df=report_file,
-                                  save_path=save_path)
