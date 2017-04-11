@@ -10,6 +10,7 @@ import os
 from dateutil.relativedelta import relativedelta
 
 import pandas as pd
+import numpy as np
 
 from ChineseStock.constants import Constant as const
 
@@ -67,6 +68,8 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
             for i in today_report.index:
                 # get some useful info
                 buy_sell_df.loc[buy_sell_index] = today_report.loc[i]
+                # if np.isnan(today_report.loc[i, const.REPORT_SELL_PRICE]):
+                #     continue
                 trading_info = {const.REPORT_BUY_PRICE: today_report.loc[i, const.REPORT_BUY_PRICE],
                                 const.REPORT_SELL_PRICE: today_report.loc[i, const.REPORT_SELL_PRICE],
                                 const.REPORT_SELL_TYPE: today_report.loc[i, const.REPORT_SELL_TYPE],

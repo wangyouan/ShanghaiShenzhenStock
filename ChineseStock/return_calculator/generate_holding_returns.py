@@ -56,34 +56,38 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays,
         return temp_result
 
     buy_price = stock_data.ix[buy_date, buy_type]
+    if stock_data.ix[buy_date, const.STOCK_VOLUME] < 1:
+        return temp_result
     temp_result[const.REPORT_BUY_PRICE] = buy_price
     temp_result[const.REPORT_BUY_DATE] = buy_date
     sell_date = trading_days[hday - 1]
-    highest_prc = stock_data.ix[buy_date, const.STOCK_HIGH_PRICE]
+    highest_prc = stock_data.ix[buy_date, const.STOCK_CLOSE_PRICE]
 
     for day in trading_days[1:]:
         if day in stock_data.index:
             sell_info = stock_data.ix[day]
-            op_prc = sell_info[const.STOCK_OPEN_PRICE]
-            rate = op_prc / highest_prc - 1
+            if sell_info[const.STOCK_VOLUME] < 1:
+                continue
+            clc_prc = sell_info[const.STOCK_CLOSE_PRICE]
+            rate = (clc_prc / highest_prc - 1) * 100 + sr
             if day > sell_date:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type2]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type2
                 temp_result[const.REPORT_SELL_DATE] = day
                 return temp_result
 
-            elif day == sell_date or rate < sr:
+            elif day == sell_date or rate < 0:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type
                 temp_result[const.REPORT_SELL_DATE] = day
                 return temp_result
 
-            highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
+            highest_prc = max(highest_prc, sell_info[const.STOCK_CLOSE_PRICE])
 
     return temp_result
 
 
-def calculate_return_date(hday, sr, report_df, save_path, over=False):
+def calculate_return_data(hday, sr, report_df, save_path, over=False):
     """
     Get return report
     :param hday: holding days
@@ -91,9 +95,6 @@ def calculate_return_date(hday, sr, report_df, save_path, over=False):
     :param over: need to override files or not
     :return: None
     """
-    if isinstance(sr, int):
-        sr = -float(abs(sr)) / 100
-
     save_file_name = 'hday{}_sr{}.p'.format(hday, int(abs(sr) * 100))
 
     trading_days_list = pd.read_pickle(const.TRADING_DAYS_20170228_FILE)
@@ -141,7 +142,7 @@ def calculate_return_date(hday, sr, report_df, save_path, over=False):
     for key in [const.REPORT_SELL_DATE, const.REPORT_BUY_DATE]:
         return_input_report[key] = pd.to_datetime(return_input_report[key])
 
-    return_input_report.to_pickle(os.path.join(save_path, save_file_name))
+    return_input_report.dropna(subset=[const.REPORT_SELL_PRICE]).to_pickle(os.path.join(save_path, save_file_name))
 
 
 if __name__ == '__main__':
@@ -152,6 +153,5 @@ if __name__ == '__main__':
 
     for hday in [5, 10, 12, 15, 20]:
         for sr in [1, 2, 3, 4, 5]:
-            sr_rate = -float(sr) / 100
-            calculate_return_date(hday, sr_rate, over=True, report_df=report_file,
+            calculate_return_data(hday, sr, over=True, report_df=report_file,
                                   save_path=save_path)
