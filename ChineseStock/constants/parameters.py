@@ -17,5 +17,5 @@ class Parameters(object):
 
     stock_buy_type = 'open'
     stock_sell_type = 'close'
-    # stock_sell_type2 = 'open'
-    stock_sell_type2 = 'close'
+    stock_sell_type2 = 'open'
+    # stock_sell_type2 = 'close'
