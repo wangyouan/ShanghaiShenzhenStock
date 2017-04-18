@@ -110,8 +110,8 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p,
     raw_series = pd.Series()
     alpha_series = pd.Series()
 
-    raw_series.loc[tday_list[0] - relativedelta(days=1)] = sum(raw_free_account)
-    alpha_series.loc[tday_list[0] - relativedelta(days=1)] = sum(alpha_free_account)
+    raw_series.loc[tday_list[0] - relativedelta(days=1)] = raw_free_account.get_total_amount()
+    alpha_series.loc[tday_list[0] - relativedelta(days=1)] = alpha_free_account.get_total_amount()
     keys = list(report_df.keys())
     keys.append('amount')
     buy_sell_df = pd.DataFrame(columns=report_df.keys())
