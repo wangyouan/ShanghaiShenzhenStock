@@ -16,9 +16,67 @@ import pandas as pd
 from ChineseStock.constants import Constant as const
 
 
-def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p):
+class Account(object):
+    def __init__(self, p_num, is_reb, i_wealth):
+        """
+        Init class
+        :param p_num: portfolio number 
+        :param is_reb: whether this account need to be reblanced or not
+        :param i_wealth: initial wealth
+        """
+        self.account_list = None
+        self.free_money = None
+        self.free_port = None
+
+        # if not use reblance, we will use account list to count money
+        if not is_reb:
+            self.account_list = [float(i_wealth) / p_num for _ in range(p_num)]
+            self.has_free_port = self._has_free_port_non_reblance
+            self.pop_money = self._pop_money_non_reblance
+            self.get_total_amount = self._get_total_amount_non_reblance
+            self.push_money = self._push_money_non_reblance
+
+        # if reblance, we will use free money and free port count money
+        else:
+            self.free_money = float(i_wealth)
+            self.free_port = p_num
+            self.has_free_port = self._has_free_port_reblance
+            self.pop_money = self._pop_money_reblance
+            self.get_total_amount = self._get_total_amount_reblance
+            self.push_money = self._push_money_reblance
+
+    def _has_free_port_reblance(self):
+        return self.free_port > 0
+
+    def _pop_money_reblance(self):
+        amount = self.free_money / self.free_port
+        self.free_money -= amount
+        self.free_port -= 1
+        return amount
+
+    def _get_total_amount_reblance(self):
+        return self.free_money
+
+    def _push_money_reblance(self, money):
+        self.free_money += money
+        self.free_port += 1
+
+    def _has_free_port_non_reblance(self):
+        return len(self.account_list) > 0
+
+    def _pop_money_non_reblance(self):
+        return self.account_list.pop(0)
+
+    def _get_total_amount_non_reblance(self):
+        return sum(self.account_list)
+
+    def _push_money_non_reblance(self, money):
+        self.account_list.append(money)
+
+
+def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p, is_reb):
     """
-    Generate wealth series
+    Generate wealth series not reblance
     :param hday: holding days
     :param sr: stop loss rate
     :param irrp: input return report path
@@ -28,6 +86,7 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
     :param tag: name tag
     :param p: portfolio num
     :param is_reblance: whether using reblance or not in this test
+    :param is_reb: is reblance, need reblance or not
     :return: raw_series or alpha_series in this test
     """
     if isinstance(sr, float):
@@ -40,8 +99,8 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
     stock_df = pd.read_pickle(const.STOCK_PRICE_20170408_FILE_13_2)
     index_df = pd.read_pickle(const.SZ_399300_PATH)
 
-    raw_free_account = [const.initial_wealth / p for _ in range(p)]
-    alpha_free_account = [const.initial_wealth / p for _ in range(p)]
+    raw_free_account = Account(p_num=p, is_reb=is_reb, i_wealth=const.initial_wealth)
+    alpha_free_account = Account(p_num=p, is_reb=is_reb, i_wealth=const.initial_wealth)
 
     # holding list info {sell_date: [{tic, a_amount, r_amount, sell_price, buy_price, index_price, sell_type,
     #                                 buy_date}]}
@@ -67,7 +126,7 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
         today_index = index_df.loc[current_date]
 
         # logger.debug('Current free portfolio is {}, start to handle buy info'.format(free_p))
-        if raw_free_account and not today_report.empty:
+        if raw_free_account.has_free_port() and not today_report.empty:
             for i in today_report.index:
                 # get some useful info
                 buy_sell_df.loc[buy_sell_index] = today_report.loc[i]
@@ -88,12 +147,12 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
                 buy_type = today_report.loc[i, const.REPORT_BUY_TYPE]
 
                 # buy raw
-                raw_amount = raw_free_account.pop(0)
+                raw_amount = raw_free_account.pop_money()
                 trading_info['raw_amount'] = raw_amount * (1 - const.transaction_cost)
                 buy_sell_df.loc[buy_sell_index, 'amount'] = trading_info['raw_amount']
 
                 # buy alpha
-                alpha_amount = alpha_free_account.pop(0)
+                alpha_amount = alpha_free_account.pop_money()
                 trading_info['alpha_amount'] = alpha_amount * (1 - const.transaction_cost)
                 trading_info['index_price'] = today_index[buy_type]
 
@@ -105,7 +164,7 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
                 buy_sell_index += 1
                 holding_tics.add(trading_info[const.TICKER])
 
-                if len(raw_free_account) == 0:
+                if not raw_free_account.has_free_port():
                     break
 
         # check whether there are some stocks to sell or not
@@ -121,12 +180,12 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
 
                 # handle raw account
                 raw_amount *= sell_price / buy_price * (1 - const.transaction_cost)
-                raw_free_account.append(raw_amount)
+                raw_free_account.push_money(raw_amount)
 
                 # handle alpha account
                 isell_price = today_index[sell_info[const.REPORT_SELL_TYPE]]  # index sell price
                 alpha_amount *= (sell_price / buy_price * (1 - const.transaction_cost) - isell_price / ibuy_price + 1)
-                alpha_free_account.append(alpha_amount)
+                alpha_free_account.push_money(alpha_amount)
 
                 holding_tics.remove(sell_info[const.TICKER])
 
@@ -135,8 +194,8 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p)
         # logger.debug('Current free portfolio is {}, handle sell info finished'.format(free_p))
 
         # Calculate current amount of raw and alpha
-        raw_wealth = sum(raw_free_account)
-        alpha_wealth = sum(alpha_free_account)
+        raw_wealth = raw_free_account.get_total_amount()
+        alpha_wealth = alpha_free_account.get_total_amount()
 
         ic_price = today_index[const.STOCK_CLOSE_PRICE]
 
