@@ -21,7 +21,7 @@ from ChineseStock.wealth_generator.calculate_wealth_info_20170417 import calcula
 portfolio_range = [15, 20, 22, 25, 30]
 hday_list = [5, 10, 12, 15, 20]
 sr_list = range(1, 6)
-file_path = '20170418_non_reblance'
+file_path = '20170419_non_reblance_no_open_stop'
 is_reblance = False
 input_report_path = os.path.join(const.TEMP_PATH, file_path, 'input_return_report')
 raw_wealth_path = os.path.join(const.TEMP_PATH, file_path, 'raw_wealth')

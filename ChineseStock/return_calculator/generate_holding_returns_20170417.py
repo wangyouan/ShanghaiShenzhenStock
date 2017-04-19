@@ -36,9 +36,16 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
     :param sell_date: sell_date of target stock
     :return: a dict of temp result
     """
+    if isinstance(sr, float):
+        sr = abs(sr)
+
+    elif isinstance(sr, int):
+        sr = float(sr) / 100
+
     temp_result = {const.REPORT_SELL_TYPE: np.nan, const.REPORT_SELL_DATE: np.nan,
                    const.REPORT_BUY_DATE: np.nan, const.REPORT_SELL_PRICE: np.nan,
-                   const.REPORT_BUY_PRICE: np.nan, const.REPORT_BUY_TYPE: buy_type}
+                   const.REPORT_BUY_PRICE: np.nan, const.REPORT_BUY_TYPE: buy_type,
+                   const.STOCK_HIGH_PRICE: np.nan}
 
     # Get buy day
     trading_days = tdays[tdays > date]
@@ -92,29 +99,32 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
                 highest_prc = max(highest_prc, high_prc)
                 continue
 
-            clc_rate = (clc_prc / highest_prc - 1) * 100 + sr
-            open_rate = (open_prc / highest_prc - 1) * 100 + sr
+            # open_stop = (open_prc < highest_prc * (1 - sr))
+            open_stop = False
 
             # use open price to sell stock
-            if day > sell_date or open_rate < 0:
+            if day > sell_date or open_stop:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type2]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type2
                 temp_result[const.REPORT_SELL_DATE] = day
+                temp_result[const.STOCK_HIGH_PRICE] = highest_prc
                 return temp_result
 
             # This means limit down happened at close so we cannot use close price to sell this stock
+            highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
             if clc_prc < last_close * (1 - limit_down):
                 last_close = clc_prc
-                highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
                 continue
 
-            if day == sell_date or clc_rate < 0:
+            close_stop = (clc_prc < highest_prc * (1 - sr))
+
+            if day == sell_date or close_stop < 0:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type
                 temp_result[const.REPORT_SELL_DATE] = day
+                temp_result[const.STOCK_HIGH_PRICE] = highest_prc
                 return temp_result
 
-            highest_prc = max(highest_prc, sell_info[const.STOCK_HIGH_PRICE])
             last_close = clc_prc
 
     return temp_result
