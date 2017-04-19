@@ -118,7 +118,7 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
 
             close_stop = (clc_prc < highest_prc * (1 - sr))
 
-            if day == sell_date or close_stop < 0:
+            if day == sell_date or close_stop:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type
                 temp_result[const.REPORT_SELL_DATE] = day
