@@ -26,7 +26,7 @@ is_reblance = False
 input_report_path = os.path.join(const.TEMP_PATH, file_path, 'input_return_report')
 raw_wealth_path = os.path.join(const.TEMP_PATH, file_path, 'raw_wealth')
 alpha_wealth_path = os.path.join(const.TEMP_PATH, file_path, 'alpha_wealth')
-buy_sell_path = os.path.join(const.TEMP_PATH, file_path, 'buy_sell_record')
+buy_sell_path = os.path.join(const.TEMP_PATH, file_path, 'transaction_record')
 
 for path_name in [raw_wealth_path, alpha_wealth_path, buy_sell_path, input_report_path]:
     if not os.path.isdir(path_name):
