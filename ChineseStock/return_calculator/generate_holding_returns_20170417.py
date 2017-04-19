@@ -40,7 +40,7 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
         sr = abs(sr)
 
     elif isinstance(sr, int):
-        sr = float(sr) / 100
+        sr = float(abs(sr)) / 100
 
     temp_result = {const.REPORT_SELL_TYPE: np.nan, const.REPORT_SELL_DATE: np.nan,
                    const.REPORT_BUY_DATE: np.nan, const.REPORT_SELL_PRICE: np.nan,
