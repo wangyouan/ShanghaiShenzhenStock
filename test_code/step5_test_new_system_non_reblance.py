@@ -21,7 +21,7 @@ from ChineseStock.wealth_generator.calculate_wealth_info_20170417 import calcula
 portfolio_range = [15, 20, 22, 25, 30]
 hday_list = [5, 10, 12, 15, 20]
 sr_list = range(1, 6)
-file_path = '20170419_non_reblance_no_open_stop'
+file_path = '20170420_non_reblance'
 is_reblance = False
 input_report_path = os.path.join(const.TEMP_PATH, file_path, 'input_return_report')
 raw_wealth_path = os.path.join(const.TEMP_PATH, file_path, 'raw_wealth')
@@ -79,12 +79,12 @@ if __name__ == '__main__':
         col_name = f[:-2]
         result_df[col_name] = df
 
-    result_df.to_excel(os.path.join(const.TEMP_PATH, file_path, '20170418_insider_reblance_test_result.xlsx'))
+    result_df.to_excel(os.path.join(const.TEMP_PATH, file_path, '20170420_insider_reblance_test_result.xlsx'))
     sta_df = pd.DataFrame(columns=result_df.keys())
     sta_df.loc[const.ANNUALIZED_RETURN] = get_annualized_return(result_df, const.WEALTH_DATAFRAME)
     sta_df.loc[const.SHARPE_RATIO] = get_sharpe_ratio(result_df, const.WEALTH_DATAFRAME)
     sta_df.loc['max_drawdown'] = result_df.apply(get_max_draw_down)
 
-    sta_df.to_excel(os.path.join(const.TEMP_PATH, file_path, '20170418_insider_reblance_test_statistics.xlsx'))
+    sta_df.to_excel(os.path.join(const.TEMP_PATH, file_path, '20170420_insider_reblance_test_statistics.xlsx'))
 
     print(time.time() - start_time)
