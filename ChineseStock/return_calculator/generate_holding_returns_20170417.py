@@ -33,7 +33,6 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
     :param buy_type: use which price as buy
     :param sell_type: use which price as sell
     :param sell_type2: if target date is not trading day, use which price to sell
-    :param sell_date: sell_date of target stock
     :return: a dict of temp result
     """
     if isinstance(sr, float):
@@ -71,17 +70,15 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
         last_close = stock_data.ix[last_date, const.STOCK_CLOSE_PRICE]
         has_limit_tag = (last_close * (1 + limit_up) < today_open)
 
-    buy_day_high = stock_data.ix[buy_date, const.STOCK_HIGH_PRICE]
-    buy_day_low = stock_data.ix[buy_date, const.STOCK_LOW_PRICE]
-    if has_limit_tag or abs(buy_day_high - buy_day_low) < 0.01:
+    # buy_day_high = stock_data.ix[buy_date, const.STOCK_HIGH_PRICE]
+    # buy_day_low = stock_data.ix[buy_date, const.STOCK_LOW_PRICE]
+    # if has_limit_tag or (abs(buy_day_high - buy_day_low) < 0.01):
+    if has_limit_tag:
         return temp_result
 
     buy_price = stock_data.ix[buy_date, buy_type]
     temp_result[const.REPORT_BUY_PRICE] = buy_price
     temp_result[const.REPORT_BUY_DATE] = buy_date
-    trading_days = trading_days[trading_days >= buy_date]
-    if trading_days.size < hday:
-        return temp_result
     sell_date = trading_days.iloc[hday - 1]
     highest_prc = stock_data.ix[buy_date, const.STOCK_HIGH_PRICE]
     last_close = stock_data.ix[buy_date, const.STOCK_CLOSE_PRICE]
@@ -93,17 +90,16 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
             open_prc = sell_info[const.STOCK_OPEN_PRICE]
             high_prc = sell_info[const.STOCK_HIGH_PRICE]
 
-            # This means limit down happened and we cannot sell stock today
-            if sell_info[const.STOCK_VOLUME] < 1 or open_prc < last_close * (1 - limit_down):
+            # This means today this stock has no transaction info, and we need to neglect today
+            if sell_info[const.STOCK_VOLUME] < 1:
                 last_close = clc_prc
                 highest_prc = max(highest_prc, high_prc)
                 continue
 
-            # open_stop = (open_prc < highest_prc * (1 - sr))
-            open_stop = False
+            open_limit_down = (open_prc < last_close * (1 - limit_down))
 
-            # use open price to sell stock
-            if day > sell_date or open_stop:
+            # use open price to sell stock if this is outdated and did not has open limit down
+            if day > sell_date and not open_limit_down:
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type2]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type2
                 temp_result[const.REPORT_SELL_DATE] = day
@@ -116,9 +112,8 @@ def calculate_trade_info(date, stock_data, sr, hday, tdays, limit_up=0.097, limi
                 last_close = clc_prc
                 continue
 
-            close_stop = (clc_prc < highest_prc * (1 - sr))
-
-            if day == sell_date or close_stop:
+            # check whether close stop triggered or current day is greater than or equal to sell date
+            if day >= sell_date or (clc_prc < highest_prc * (1 - sr)):
                 temp_result[const.REPORT_SELL_PRICE] = sell_info[sell_type]
                 temp_result[const.REPORT_SELL_TYPE] = sell_type
                 temp_result[const.REPORT_SELL_DATE] = day
@@ -149,8 +144,11 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
 
     def calculate_return(tmp_df):
         result_df = tmp_df.copy()
+
+        # those information would be append to data
         for key in [const.REPORT_BUY_DATE, const.REPORT_BUY_TYPE, const.REPORT_BUY_PRICE,
-                    const.REPORT_SELL_DATE, const.REPORT_SELL_PRICE, const.REPORT_SELL_TYPE]:
+                    const.REPORT_SELL_DATE, const.REPORT_SELL_PRICE, const.REPORT_SELL_TYPE,
+                    const.STOCK_HIGH_PRICE]:
             result_df.loc[:, key] = np.nan
 
         tic = tmp_df.ix[tmp_df.first_valid_index(), const.TICKER]
@@ -171,8 +169,11 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
 
         return result_df
 
+    # classified data frame with ticker info
     grouped_df = report_df.groupby(const.TICKER)
-    dfs = [df for index, df in grouped_df]
+    dfs = [df for _, df in grouped_df]
+
+    # multiprocessing those data
     pool = pathos.multiprocessing.ProcessingPool(multiprocessing.cpu_count() - 2)
     result_dfs = pool.map(calculate_return, dfs)
     return_input_report = pd.concat(result_dfs)
@@ -180,4 +181,5 @@ def calculate_return_data(hday, sr, report_df, save_path, over=False):
     for key in [const.REPORT_SELL_DATE, const.REPORT_BUY_DATE]:
         return_input_report[key] = pd.to_datetime(return_input_report[key])
 
+    # here drop those null info
     return_input_report.dropna(subset=[const.REPORT_SELL_PRICE]).to_pickle(os.path.join(save_path, save_file_name))

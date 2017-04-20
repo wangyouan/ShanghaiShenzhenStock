@@ -8,7 +8,7 @@
 
 
 class Parameters(object):
-    working_days = 251
+    working_days = 250
     initial_wealth = 10000.0
 
     transaction_cost = 0.002

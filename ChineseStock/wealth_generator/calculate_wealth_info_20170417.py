@@ -79,13 +79,12 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p,
     Generate wealth series not reblance
     :param hday: holding days
     :param sr: stop loss rate
-    :param irrp: input return report path
+    :param irrp: event report path
     :param rp: raw series result path
     :param ap: alpha series result path
     :param bp: buy and sell record path
     :param tag: name tag
     :param p: portfolio num
-    :param is_reblance: whether using reblance or not in this test
     :param is_reb: is reblance, need reblance or not
     :return: raw_series or alpha_series in this test
     """
@@ -95,41 +94,50 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p,
     series_name = '{}_{}p_{}d_2cost_{}sr'.format(tag, p, hday, sr)
     report_file_name = 'hday{}_sr{}.p'.format(hday, sr)
 
-    report_df = pd.read_pickle(os.path.join(irrp, report_file_name))
+    # read some prepared information
+    event_report_df = pd.read_pickle(os.path.join(irrp, report_file_name))
     stock_df = pd.read_pickle(const.STOCK_PRICE_20170408_FILE_13_2)
-    index_df = pd.read_pickle(const.SZ_399300_PATH)
+    index_data_df = pd.read_pickle(const.SZ_399300_PATH)
 
+    # This two account are used
     raw_free_account = Account(p_num=p, is_reb=is_reb, i_wealth=const.initial_wealth)
     alpha_free_account = Account(p_num=p, is_reb=is_reb, i_wealth=const.initial_wealth)
 
-    # holding list info {sell_date: [{tic, a_amount, r_amount, sell_price, buy_price, index_price, sell_type,
-    #                                 buy_date}]}
-    holding_list = {}
+    # holding_tic_dict: This dict saves all the holding tickers info, include the following information
+    # {sell_date: [{tic, a_amount, r_amount, buy_date, buy_price, buy_index_price, sell_type, sell_price}]}
+    holding_tic_dict = {}
 
+    # trading days list
     tday_list = pd.read_pickle(const.TRADING_DAYS_20170408_FILE)
+
+    # initialize two series to save wealth data and set first date to initial wealth
     raw_series = pd.Series()
     alpha_series = pd.Series()
-
     raw_series.loc[tday_list[0] - relativedelta(days=1)] = raw_free_account.get_total_amount()
     alpha_series.loc[tday_list[0] - relativedelta(days=1)] = alpha_free_account.get_total_amount()
-    keys = list(report_df.keys())
+
+    # these variables are used to save transaction record information
+    keys = list(event_report_df.keys())
     keys.append('amount')
-    buy_sell_df = pd.DataFrame(columns=report_df.keys())
-    buy_sell_index = 0
+    transaction_df = pd.DataFrame(columns=event_report_df.keys())
+    transaction_index = 0
+
+    # this set is used to save holding tickers info. We will neglect some trading signals if we hold those stocks.
     holding_tics = set()
 
-    # logger.info('Start generate wealth')
+    # start to calculate wealth data
     for current_date in tday_list:
 
-        # check whether we can buy some stocks
-        today_report = report_df[report_df[const.REPORT_BUY_DATE] == current_date]
-        today_index = index_df.loc[current_date]
+        ################################################################################
+        # first buy some stocks
+        ################################################################################
+        today_report = event_report_df[event_report_df[const.REPORT_BUY_DATE] == current_date]
+        today_index_data = index_data_df.loc[current_date]
 
-        # logger.debug('Current free portfolio is {}, start to handle buy info'.format(free_p))
         if raw_free_account.has_free_port() and not today_report.empty:
             for i in today_report.index:
                 # get some useful info
-                buy_sell_df.loc[buy_sell_index] = today_report.loc[i]
+                transaction_df.loc[transaction_index] = today_report.loc[i]
                 # if np.isnan(today_report.loc[i, const.REPORT_SELL_PRICE]):
                 #     continue
                 trading_info = {const.REPORT_BUY_PRICE: today_report.loc[i, const.REPORT_BUY_PRICE],
@@ -149,29 +157,31 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p,
                 # buy raw
                 raw_amount = raw_free_account.pop_money()
                 trading_info['raw_amount'] = raw_amount * (1 - const.transaction_cost)
-                buy_sell_df.loc[buy_sell_index, 'amount'] = trading_info['raw_amount']
+                transaction_df.loc[transaction_index, 'amount'] = trading_info['raw_amount']
 
                 # buy alpha
                 alpha_amount = alpha_free_account.pop_money()
                 trading_info['alpha_amount'] = alpha_amount * (1 - const.transaction_cost)
-                trading_info['index_price'] = today_index[buy_type]
+                trading_info['index_price'] = today_index_data[buy_type]
 
-                if sell_date in holding_list:
-                    holding_list[sell_date].append(trading_info)
+                if sell_date in holding_tic_dict:
+                    holding_tic_dict[sell_date].append(trading_info)
 
                 else:
-                    holding_list[sell_date] = [trading_info]
-                buy_sell_index += 1
+                    holding_tic_dict[sell_date] = [trading_info]
+                transaction_index += 1
                 holding_tics.add(trading_info[const.TICKER])
 
                 if not raw_free_account.has_free_port():
                     break
 
-        # check whether there are some stocks to sell or not
-        if current_date in holding_list:
+        ################################################################################
+        # second sell some stocks
+        ################################################################################
+        if current_date in holding_tic_dict:
 
             # sell holding accounts
-            for sell_info in holding_list[current_date]:
+            for sell_info in holding_tic_dict[current_date]:
                 buy_price = sell_info[const.REPORT_BUY_PRICE]
                 sell_price = sell_info[const.REPORT_SELL_PRICE]
                 raw_amount = sell_info['raw_amount']
@@ -183,25 +193,26 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p,
                 raw_free_account.push_money(raw_amount)
 
                 # handle alpha account
-                isell_price = today_index[sell_info[const.REPORT_SELL_TYPE]]  # index sell price
+                isell_price = today_index_data[sell_info[const.REPORT_SELL_TYPE]]  # index sell price
                 alpha_amount *= (sell_price / buy_price * (1 - const.transaction_cost) - isell_price / ibuy_price + 1)
                 alpha_free_account.push_money(alpha_amount)
 
                 holding_tics.remove(sell_info[const.TICKER])
 
-            # delete unused info
-            del holding_list[current_date]
-        # logger.debug('Current free portfolio is {}, handle sell info finished'.format(free_p))
+            # today's sell info handled finished, remove those info
+            del holding_tic_dict[current_date]
 
-        # Calculate current amount of raw and alpha
+        ################################################################################
+        # The following code is used to calculate today wealth
+        ################################################################################
         raw_wealth = raw_free_account.get_total_amount()
         alpha_wealth = alpha_free_account.get_total_amount()
 
-        ic_price = today_index[const.STOCK_CLOSE_PRICE]
+        # get todays index close price
+        ic_price = today_index_data[const.STOCK_CLOSE_PRICE]
 
-        # logger.debug('Start to calculate today wealth'.format(free_p))
-        for i_date in holding_list:
-            for sell_info in holding_list[i_date]:
+        for i_date in holding_tic_dict:
+            for sell_info in holding_tic_dict[i_date]:
                 tic = sell_info[const.TICKER]
                 buy_price = sell_info[const.REPORT_BUY_PRICE]
                 ibuy_price = sell_info['index_price']
@@ -220,14 +231,11 @@ def calculate_raw_alpha_wealth_series_record(hday, sr, irrp, rp, ap, bp, tag, p,
                 # handle alpha wealth
                 alpha_wealth += a_amount * (tc_price / buy_price - ic_price / ibuy_price + 1)
 
-        # logger.debug('Handle today wealth finished, raw wealth is {}, alpha wealth is {}'.format(raw_wealth,
-        #                                                                                          alpha_wealth))
         raw_series.loc[current_date] = raw_wealth
         alpha_series.loc[current_date] = alpha_wealth
 
-    # logger.info('Generate finished')
+    # save result
     raw_series.to_pickle(os.path.join(rp, '{}.p'.format(series_name)))
     alpha_series.to_pickle(os.path.join(ap, '{}.p'.format(series_name)))
-    buy_sell_df.to_pickle(os.path.join(bp, '{}.p'.format(series_name)))
-    buy_sell_df.to_csv(os.path.join(bp, '{}.csv'.format(series_name)))
+    transaction_df.to_csv(os.path.join(bp, '{}.csv'.format(series_name)))
     return raw_series, alpha_series
